@@ -1,18 +1,48 @@
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.Graph;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
-using MSGraphHack.Data;
+using MSGraphHack;
+using System.Net.Http.Headers;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+    .AddMicrosoftIdentityWebApp(options =>
+    {
+        builder.Configuration.Bind("AzureAd", options);
+
+        options.Prompt = "select_account";
+
+        options.Events.OnTokenValidated = context =>
+        {
+            var tokenAcquisition = context.HttpContext.RequestServices
+                .GetRequiredService<ITokenAcquisition>();
+
+            var graphClient = new GraphServiceClient(
+                new DelegateAuthenticationProvider(async (request) =>
+                {
+                    var token = await tokenAcquisition
+                        .GetAccessTokenForUserAsync(GraphConstants.Scopes, user: context.Principal);
+                    request.Headers.Authorization =
+                        new AuthenticationHeaderValue("Bearer", token);
+                })
+            );
+
+            return Task.CompletedTask;
+        };
+    })
+    .EnableTokenAcquisitionToCallDownstreamApi(options =>
+        {
+            builder.Configuration.Bind("AzureAd", options);
+        }, GraphConstants.Scopes)
+    .AddMicrosoftGraph(options =>
+    {
+        options.Scopes = string.Join(' ', GraphConstants.Scopes);
+    })
+    .AddInMemoryTokenCaches();
+
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
 
@@ -25,7 +55,6 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor()
     .AddMicrosoftIdentityConsentHandler();
-builder.Services.AddSingleton<WeatherForecastService>();
 
 var app = builder.Build();
 
