@@ -16,17 +16,6 @@ jobs:
         with:
           dotnet-version: 7.0.x
       - name: Restore Dependencies
-        run: dotnet restore ProjectPyramid.sln
+        run: dotnet restore MSGraphHack.sln
       - name: Build
-        run: dotnet build ProjectPyramid.sln --configuration Release --no-restore
-      - name: Test
-        working-directory: ./ProjectPyramid.API.Test
-        run: dotnet test --collect:"XPlat Code Coverage"
-      - name: Test
-        working-directory: ./ProjectPyramid.Core.Test
-        run: dotnet test --collect:"XPlat Code Coverage"        
-      - name: CodeCov
-        run: |
-          curl -Os https://uploader.codecov.io/latest/linux/codecov
-          chmod +x codecov
-          ./codecov -t ${{ secrets.CODECOV_TOKEN }}
+        run: dotnet build MSGraphHack.sln --configuration Release --no-restore     
